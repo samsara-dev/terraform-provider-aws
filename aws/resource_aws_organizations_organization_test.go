@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
-	"github.com/terraform-providers/terraform-provider-aws/aws/internal/tfawsresource"
+	"github.com/samsara-dev/terraform-provider-aws/aws/internal/tfawsresource"
 )
 
 func testAccAwsOrganizationsOrganization_basic(t *testing.T) {

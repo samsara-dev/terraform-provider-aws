@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	tfec2 "github.com/terraform-providers/terraform-provider-aws/aws/internal/service/ec2"
+	tfec2 "github.com/samsara-dev/terraform-provider-aws/aws/internal/service/ec2"
 )
 
 func resourceAwsEc2ClientVpnNetworkAssociation() *schema.Resource {

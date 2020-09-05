@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/terraform-providers/terraform-provider-aws/aws/internal/tfawsresource"
+	"github.com/samsara-dev/terraform-provider-aws/aws/internal/tfawsresource"
 )
 
 func TestAccAWSVpcPeeringConnectionOptions_basic(t *testing.T) {

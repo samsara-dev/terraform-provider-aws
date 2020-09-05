@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/waf"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
-	"github.com/terraform-providers/terraform-provider-aws/aws/internal/tfawsresource"
+	"github.com/samsara-dev/terraform-provider-aws/aws/internal/tfawsresource"
 )
 
 func TestAccAWSWafRule_basic(t *testing.T) {

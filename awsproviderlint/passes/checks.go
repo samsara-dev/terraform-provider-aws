@@ -1,13 +1,13 @@
 package passes
 
 import (
-	"github.com/terraform-providers/terraform-provider-aws/awsproviderlint/passes/AWSAT001"
-	"github.com/terraform-providers/terraform-provider-aws/awsproviderlint/passes/AWSAT002"
-	"github.com/terraform-providers/terraform-provider-aws/awsproviderlint/passes/AWSAT003"
-	"github.com/terraform-providers/terraform-provider-aws/awsproviderlint/passes/AWSAT004"
-	"github.com/terraform-providers/terraform-provider-aws/awsproviderlint/passes/AWSAT005"
-	"github.com/terraform-providers/terraform-provider-aws/awsproviderlint/passes/AWSR001"
-	"github.com/terraform-providers/terraform-provider-aws/awsproviderlint/passes/AWSR002"
+	"github.com/samsara-dev/terraform-provider-aws/awsproviderlint/passes/AWSAT001"
+	"github.com/samsara-dev/terraform-provider-aws/awsproviderlint/passes/AWSAT002"
+	"github.com/samsara-dev/terraform-provider-aws/awsproviderlint/passes/AWSAT003"
+	"github.com/samsara-dev/terraform-provider-aws/awsproviderlint/passes/AWSAT004"
+	"github.com/samsara-dev/terraform-provider-aws/awsproviderlint/passes/AWSAT005"
+	"github.com/samsara-dev/terraform-provider-aws/awsproviderlint/passes/AWSR001"
+	"github.com/samsara-dev/terraform-provider-aws/awsproviderlint/passes/AWSR002"
 	"golang.org/x/tools/go/analysis"
 )
 

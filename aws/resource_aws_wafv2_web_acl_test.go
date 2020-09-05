@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/terraform-providers/terraform-provider-aws/aws/internal/tfawsresource"
+	"github.com/samsara-dev/terraform-provider-aws/aws/internal/tfawsresource"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/wafv2"

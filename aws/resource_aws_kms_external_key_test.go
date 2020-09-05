@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 	awspolicy "github.com/jen20/awspolicyequivalence"
-	"github.com/terraform-providers/terraform-provider-aws/aws/internal/service/kms/waiter"
+	"github.com/samsara-dev/terraform-provider-aws/aws/internal/service/kms/waiter"
 )
 
 func TestAccAWSKmsExternalKey_basic(t *testing.T) {

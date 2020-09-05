@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
-	"github.com/terraform-providers/terraform-provider-aws/aws/internal/service/eks/token"
+	"github.com/samsara-dev/terraform-provider-aws/aws/internal/service/eks/token"
 )
 
 func dataSourceAwsEksClusterAuth() *schema.Resource {

@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/terraform-providers/terraform-provider-aws/aws/internal/keyvaluetags"
+	"github.com/samsara-dev/terraform-provider-aws/aws/internal/keyvaluetags"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/iam"

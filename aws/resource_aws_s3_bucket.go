@@ -20,7 +20,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
-	"github.com/terraform-providers/terraform-provider-aws/aws/internal/keyvaluetags"
+	"github.com/samsara-dev/terraform-provider-aws/aws/internal/keyvaluetags"
 )
 
 const s3BucketCreationTimeout = 2 * time.Minute

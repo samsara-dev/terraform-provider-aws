@@ -17,7 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/hashcode"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/terraform-providers/terraform-provider-aws/aws/internal/flatmap"
+	"github.com/samsara-dev/terraform-provider-aws/aws/internal/flatmap"
 )
 
 // cloudFrontRoute53ZoneID defines the route 53 zone ID for CloudFront. This

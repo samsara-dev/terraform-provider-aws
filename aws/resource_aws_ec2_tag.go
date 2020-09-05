@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/terraform-providers/terraform-provider-aws/aws/internal/keyvaluetags"
+	"github.com/samsara-dev/terraform-provider-aws/aws/internal/keyvaluetags"
 )
 
 func resourceAwsEc2Tag() *schema.Resource {

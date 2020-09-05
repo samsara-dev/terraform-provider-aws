@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
-	"github.com/terraform-providers/terraform-provider-aws/aws/internal/keyvaluetags"
+	"github.com/samsara-dev/terraform-provider-aws/aws/internal/keyvaluetags"
 )
 
 func resourceAwsCloudWatchLogGroup() *schema.Resource {
