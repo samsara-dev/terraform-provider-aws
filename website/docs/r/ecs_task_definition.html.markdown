@@ -91,12 +91,13 @@ resource "aws_ecs_task_definition" "service" {
 ### Top-Level Arguments
 
 * `family` - (Required) A unique name for your task definition.
-* `container_definitions` - (Required) A list of valid [container definitions]
-(http://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html) provided as a
-single valid JSON document. Please note that you should only provide values that are part of the container
-definition document. For a detailed description of what parameters are available, see the [Task Definition Parameters]
-(https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html) section from the
-official [Developer Guide](https://docs.aws.amazon.com/AmazonECS/latest/developerguide).
+* `container_definitions` - (Required) A list of valid [container
+definitions](http://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html)
+provided as a single valid JSON document. Please note that you should only
+provide values that are part of the container definition document. For a
+detailed description of what parameters are available, see the [Task Definition
+Parameters](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html)
+section from the official [Developer Guide](https://docs.aws.amazon.com/AmazonECS/latest/developerguide).
 
 ~> **NOTE**: Proper escaping is required for JSON field values containing quotes (`"`) such as `environment` values. If directly setting the JSON, they should be escaped as `\"` in the JSON,  e.g. `"value": "I \"love\" escaped quotes"`. If using a Terraform variable value, they should be escaped as `\\\"` in the variable, e.g. `value = "I \\\"love\\\" escaped quotes"` in the variable and `"value": "${var.myvariable}"` in the JSON.
 
@@ -174,7 +175,7 @@ For more information, see [Specifying an EFS volume in your Task Definition Deve
 ```hcl
 resource "aws_ecs_task_definition" "service" {
   family                = "service"
-  container_definitions = "${file("task-definitions/service.json")}"
+  container_definitions = file("task-definitions/service.json")
 
   volume {
     name = "service-storage"
@@ -220,33 +221,33 @@ Guide](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-query-
 resource "aws_ecs_task_definition" "test" {
   family                = "test"
   container_definitions = <<TASK_DEFINITION
-  [
-  	{
-  		"cpu": 10,
-  		"command": ["sleep", "10"],
-  		"entryPoint": ["/"],
-  		"environment": [
-  			{"name": "VARNAME", "value": "VARVAL"}
-  		],
-  		"essential": true,
-  		"image": "jenkins",
-  		"memory": 128,
-  		"name": "jenkins",
-  		"portMappings": [
-  			{
-  				"containerPort": 80,
-  				"hostPort": 8080
-  			}
-  		],
-          "resourceRequirements":[
-              {
-                  "type":"InferenceAccelerator",
-                  "value":"device_1"
-              }
-          ]
-  	}
-  ]
-  TASK_DEFINITION
+[
+	{
+		"cpu": 10,
+		"command": ["sleep", "10"],
+		"entryPoint": ["/"],
+		"environment": [
+			{"name": "VARNAME", "value": "VARVAL"}
+		],
+		"essential": true,
+		"image": "jenkins",
+		"memory": 128,
+		"name": "jenkins",
+		"portMappings": [
+			{
+				"containerPort": 80,
+				"hostPort": 8080
+			}
+		],
+        "resourceRequirements":[
+            {
+                "type":"InferenceAccelerator",
+                "value":"device_1"
+            }
+        ]
+	}
+]
+TASK_DEFINITION
 
   inference_accelerator {
     device_name = "device_1"
