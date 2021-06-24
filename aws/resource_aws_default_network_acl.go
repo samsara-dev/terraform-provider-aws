@@ -6,8 +6,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/terraform-providers/terraform-provider-aws/aws/internal/keyvaluetags"
 )
 
@@ -183,13 +183,16 @@ func resourceAwsDefaultNetworkAcl() *schema.Resource {
 				Set: resourceAwsNetworkAclEntryHash,
 			},
 
-			"tags": tagsSchema(),
+			"tags":     tagsSchema(),
+			"tags_all": tagsSchemaComputed(),
 
 			"owner_id": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
 		},
+
+		CustomizeDiff: SetTagsDiff,
 	}
 }
 
@@ -272,8 +275,8 @@ func resourceAwsDefaultNetworkAclUpdate(d *schema.ResourceData, meta interface{}
 		}
 	}
 
-	if d.HasChange("tags") {
-		o, n := d.GetChange("tags")
+	if d.HasChange("tags_all") {
+		o, n := d.GetChange("tags_all")
 
 		if err := keyvaluetags.Ec2UpdateTags(conn, d.Id(), o, n); err != nil {
 			return fmt.Errorf("error updating EC2 Default Network ACL (%s) tags: %s", d.Id(), err)

@@ -1,93 +1,92 @@
-# Q2 2020 Roadmap
+# Roadmap:  May 2021 - July 2021
 
-Each quarter the team will highlight areas of focus for our work and upcoming research.
- 
-We select items for inclusion in the roadmap from the Top 10 Community Issues, [core services](docs/CORE_SERVICES.md), and internal priorities. When community pull requests exist for a given item, we will prioritize working with the original authors to include their contributions. If the author can no longer take on the implementation, HashiCorp will complete any additional work needed. 
+Every few months, the team will highlight areas of focus for our work and upcoming research.
 
-Each weekly release will include necessary tasks that lead to the completion of the stated goals as well as community pull requests, enhancements, and features that are not highlighted in the roadmap. 
+We select items for inclusion in the roadmap from the Top 10 Community Issues, [Core Services](docs/CORE_SERVICES.md), and internal priorities. Where community sourced contributions exist we will work with the authors to review and merge their work. Where this does not exist or the original contributors are not available we will create the resources and implementation ourselves.
 
-To make contribution easier, we’ll be using the [`Help Wanted`](https://github.com/terraform-providers/terraform-provider-aws/labels/help%20wanted) tag to point to issues we’d like to include in this quarter’s series of releases. 
+Each weekly release will include necessary tasks that lead to the completion of the stated goals as well as community pull requests, enhancements, and features that are not highlighted in the roadmap. To view all the items we've prioritized for this quarter, please see the [Roadmap milestone](https://github.com/hashicorp/terraform-provider-aws/milestone/138).
 
-This quarter (May-July ‘20) we will be prioritizing the following areas of work: 
+This roadmap does not describe all the work that will be included within this timeframe, but it does describe our focus. We will include other work as events occur .
 
-## Currently In Progress
+In the period spanning February to April 2021 846 Pull Requests were opened in the provider and 947 were merged, adding support for:
 
-### 3.0.0 
+- Default Tags
+- CloudFront Origin Request and Cache Policies
+- Cloudwatch Synthetics
+- SecurityHub
+- Elasticache Global Replication Group
+- ACM Private Certificate Authorities
+- Managed Workflows for Apache Airflow
+- Managed Add Ons for EKS
+- ECR Cross Region Replication
+- SNS FIFO Topics
+- EC2 Autoscaling Warm Pools
 
-Milestone: [v3.0.0](https://github.com/terraform-providers/terraform-provider-aws/milestone/70)
+Among many other enhancements, bug fixes and resolutions to technical debt items.
 
-Each year the TF AWS Provider team releases a major version. [Major releases](https://www.terraform.io/docs/extend/best-practices/versioning.html#example-major-number-increments) include code removals, deprecations, and breaking changes. A corresponding “upgrade guide” will be published alongside the release. 
+From May-July ‘21, we will be prioritizing the following areas of work:
 
-We'll be updating the linked milestone as we work to finalize and complete v3.0.0. 
+## New Services
 
-### WAFv2
+### AWS Amplify
+Issue: [#6917](https://github.com/hashicorp/terraform-provider-aws/issues/6917)
 
-Issue: [#11046](https://github.com/terraform-providers/terraform-provider-aws/issues/11046)
+_AWS Amplify is a set of tools and services that can be used together or on their own, to help front-end web and mobile developers build scalable full stack applications, powered by AWS. With Amplify, you can configure app backends and connect your app in minutes, deploy static web apps in a few clicks, and easily manage app content outside the AWS console._
+Support for AWS Amplify will include:
 
-_AWS WAFv2 is a web application firewall that lets you monitor the HTTP and HTTPS requests that are forwarded to Amazon CloudFront, an Amazon API Gateway API, or an Application Load Balancer._
+New Resource(s):
+- aws_amplify_app
+- aws_amplify_backend_environment
+- aws_amplify_branch
+- aws_amplify_domain_association
+- aws_amplify_webhook
 
-Support for WAFv2 functionality will be wholly separate from WAF “Classic”. We’ll focus on enabling community contributions to WAFv2 first. If there is not a community contribution, HashiCorp will work to add the missing resource or data source.
+### Amazon Timestream
 
-Support for WAFv2 will include:
+Issue: [#15421](https://github.com/hashicorp/terraform-provider-aws/issues/15421)
 
-#### Resources 
+_Amazon Timestream is a fast, scalable, and serverless time series database service for IoT and operational applications that makes it easy to store and analyze trillions of events per day up to 1,000 times faster and at as little as 1/10th the cost of relational databases. Amazon Timestream saves you time and cost in managing the lifecycle of time series data, and its purpose-built query engine lets you access and analyze recent and historical data together with a single query. Amazon Timestream has built-in time series analytics functions, helping you identify trends and patterns in near real-time. Amazon Timestream is serverless and automatically scales up or down to adjust capacity and performance, so you don’t need to manage the underlying infrastructure, freeing you to focus on building your applications._
 
-* aws_wafv2_ip_set
-* aws_wafv2_regex_pattern_set
-* aws_wafv2_rule_group
-* aws_wafv2_web_acl
-* aws_wafv2_web_acl_association
+Support for Amazon Timestream will include:
 
-#### Data Sources
+New Resource(s):
 
-* aws_wafv2_ip_set 
-* aws_wafv2_regex_pattern_set
-* aws_wafv2_rule_group
-* aws_wafv2_web_acl 
+- aws_timestreamwrite_database
 
-### Amazon Lex
+### AWS AppConfig
 
-Issue: [#905](https://github.com/terraform-providers/terraform-provider-aws/issues/905)
+Issue: [#11973](https://github.com/hashicorp/terraform-provider-aws/issues/11973)
 
-_Amazon Lex is a service for building conversational interfaces into any application using voice and text. Amazon Lex provides the advanced deep learning functionalities of automatic speech recognition (ASR) for converting speech to text, and natural language understanding (NLU) to recognize the intent of the text, to enable you to build applications with highly engaging user experiences and lifelike conversational interactions._
+_Use AWS AppConfig, a capability of AWS Systems Manager, to create, manage, and quickly deploy application configurations. You can use AWS AppConfig with applications hosted on Amazon Elastic Compute Cloud (Amazon EC2) instances, AWS Lambda, containers, mobile applications, or IoT devices._
 
-We’ll focus on enabling community contributions to Lex first. If there is not a community contribution, HashiCorp will work to add the missing resource or data source. 
+Support for AWS AppConfig will include:
 
-Support for Amazon Lex will include: 
+New Resource(s)
+- aws_appconfig_application
+- aws_appconfig_configuration_profile
+- aws_appconfig_deployment_strategy
+- aws_appconfig_environment
+- aws_appconfig_deployment
 
-#### Resources
 
-* aws_lex_slot_type
-* aws_lex_intent
-* aws_lex_bot
-* aws_lex_bot_alias
+## Enhancements to Existing Services
+- [AWS Transfer Server: Attach VPC security groups at creation](https://github.com/hashicorp/terraform-provider-aws/issues/15788)
+- [EC2 Launch Templates](https://github.com/hashicorp/terraform-provider-aws/issues/4264)
+- [AWS ElasticSearch Native SAML for Kibana](https://github.com/hashicorp/terraform-provider-aws/issues/16259)
 
-#### Data Sources
+## Core Service Reliability
 
-* aws_lex_slot_type
-* aws_lex_intent
-* aws_lex_bot
-* aws_lex_bot_alias
-
-### AWS Certificate Manager
-
-Issue: [#8531](https://github.com/terraform-providers/terraform-provider-aws/issues/8531)
-
-_AWS Certificate Manager is a service that allows you to easily provision, manage, and deploy public and private Secure Sockets Layer/Transport Layer Security (SSL/TLS) certificates for use with AWS services and your internal connected resources._
-
-After evaluating the issue linked above, we concluded that the ACM resource was in need of a redesign. We’ll be prioritizing redesigning and updating the resource while we tackle the open bug reports and enhancements. Our research and redesign work will be tracked [here](https://github.com/terraform-providers/terraform-provider-aws/issues/13053).
+Core Services are areas of high usage or strategic importance for our users. We strive to offer rock solid reliability in these areas. This quarter we will have a focus on S3. We will be preparing a wholesale re-design of the `aws_s3_bucket` resource that we are planning to introduce in our major version release (v4.0) this year. Our focus will be on understanding how we can better break up the currently monolithic S3 bucket resource.
 
 ## Research Topics
 
 Research topics include features, architectural changes, and ideas that we are pursuing in the longer term that may significantly impact the core user experience of the AWS provider. Research topics are discovery only and are not guaranteed to be included in a future release.
 
-### Global Default Tags
+We are interested in your thoughts and feedback about the proposals below and encourage you to comment on the linked issues or schedule time with @maryelizbeth via the link on her GitHub profile to discuss.
 
-Issue: [#7926](https://github.com/terraform-providers/terraform-provider-aws/issues/7926)
-
-We’ve been evaluating how users approach tagging their infrastructure in Terraform and the systems and practices that may interact with TF when it comes to tagging. The [initial discussions](https://github.com/hashicorp/terraform/issues/20866) led us to prioritize functionality that allows users to ignore specific tags globally in the AWS provider. As a complement to that feature, we are exploring the ability to supply global default tags to resources defined by the AWS Provider. 
-
-We are interested in your thoughts and feedback about this proposal and encourage you to comment on the issue linked above or schedule time with @maryelizbeth via the link on her [GitHub profile](https://github.com/maryelizbeth) to discuss. 
+- Major Version Planning (v4.0) including wholesale redesign of the aws_s3_bucket resource to break it up into more manageable resources.
+- AWS Go SDK v2 Adoption
+- Test Discovery - Enable the automation of running the correct subset of acceptance tests for a given PR.
 
 ## Disclosures
 

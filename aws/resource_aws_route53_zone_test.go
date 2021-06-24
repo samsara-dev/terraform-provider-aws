@@ -1,17 +1,21 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/route53"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
 func TestCleanZoneID(t *testing.T) {
@@ -48,6 +52,118 @@ func TestCleanChangeID(t *testing.T) {
 	}
 }
 
+func TestTrimTrailingPeriod(t *testing.T) {
+	cases := []struct {
+		Input  interface{}
+		Output string
+	}{
+		{"example.com", "example.com"},
+		{"example.com.", "example.com"},
+		{"www.example.com.", "www.example.com"},
+		{"", ""},
+		{".", "."},
+		{aws.String("example.com"), "example.com"},
+		{aws.String("example.com."), "example.com"},
+		{(*string)(nil), ""},
+		{42, ""},
+		{nil, ""},
+	}
+
+	for _, tc := range cases {
+		actual := trimTrailingPeriod(tc.Input)
+		if actual != tc.Output {
+			t.Fatalf("input: %s\noutput: %s", tc.Input, actual)
+		}
+	}
+}
+
+// add sweeper to delete resources
+func init() {
+	resource.AddTestSweepers("aws_route53_zone", &resource.Sweeper{
+		Name: "aws_route53_zone",
+		Dependencies: []string{
+			"aws_service_discovery_http_namespace",
+			"aws_service_discovery_public_dns_namespace",
+			"aws_service_discovery_private_dns_namespace",
+			"aws_elb",
+			"aws_route53_key_signing_key",
+		},
+		F: testSweepRoute53Zones,
+	})
+}
+
+func hostedZonesToPreserve() []string {
+	return []string{
+		"acmetest.hashicorp.engineering",
+		"tfacc.hashicorptest.com",
+		"aws.tfacc.hashicorptest.com",
+		"hashicorp.com",
+		"terraformtest.com",
+		"terraform-provider-aws-acctest-acm.com",
+	}
+}
+
+func testSweepRoute53Zones(region string) error {
+	client, err := sharedClientForRegion(region)
+
+	if err != nil {
+		return fmt.Errorf("error getting client: %s", err)
+	}
+
+	conn := client.(*AWSClient).r53conn
+	sweepResources := make([]*testSweepResource, 0)
+	var errs *multierror.Error
+
+	input := &route53.ListHostedZonesInput{}
+
+	err = conn.ListHostedZonesPages(input, func(page *route53.ListHostedZonesOutput, lastPage bool) bool {
+		if page == nil {
+			return !lastPage
+		}
+
+	MAIN:
+		for _, detail := range page.HostedZones {
+			if detail == nil {
+				continue
+			}
+
+			id := aws.StringValue(detail.Id)
+
+			for _, domain := range hostedZonesToPreserve() {
+				if strings.Contains(aws.StringValue(detail.Name), domain) {
+					log.Printf("[DEBUG] Skipping Route53 Hosted Zone (%s): %s", domain, id)
+					continue MAIN
+				}
+			}
+
+			r := resourceAwsRoute53Zone()
+			d := r.Data(nil)
+			d.SetId(id)
+			d.Set("force_destroy", true)
+			d.Set("name", detail.Name)
+
+			sweepResources = append(sweepResources, NewTestSweepResource(r, d, client))
+		}
+
+		return !lastPage
+	})
+
+	if err != nil {
+		errs = multierror.Append(errs, fmt.Errorf("error describing Route53 Hosted Zones for %s: %w", region, err))
+	}
+
+	if err = testSweepResourceOrchestratorContext(context.Background(), sweepResources, 0*time.Minute, 1*time.Minute, 10*time.Second, 18*time.Second, 10*time.Minute); err != nil {
+		errs = multierror.Append(errs, fmt.Errorf("error sweeping Route53 Hosted Zones for %s: %w", region, err))
+	}
+
+	if testSweepSkipSweepError(errs.ErrorOrNil()) {
+		log.Printf("[WARN] Skipping Route53 Hosted Zones sweep for %s: %s", region, errs)
+		return nil
+	}
+
+	return errs.ErrorOrNil()
+}
+
 func TestAccAWSRoute53Zone_basic(t *testing.T) {
 	var zone route53.GetHostedZoneOutput
 
@@ -57,6 +173,7 @@ func TestAccAWSRoute53Zone_basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, route53.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckRoute53ZoneDestroy,
 		Steps: []resource.TestStep{
@@ -64,7 +181,7 @@ func TestAccAWSRoute53Zone_basic(t *testing.T) {
 				Config: testAccRoute53ZoneConfig(zoneName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckRoute53ZoneExists(resourceName, &zone),
-					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%s.", zoneName)),
+					resource.TestCheckResourceAttr(resourceName, "name", zoneName),
 					resource.TestCheckResourceAttr(resourceName, "name_servers.#", "4"),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "0"),
 					resource.TestCheckResourceAttr(resourceName, "vpc.#", "0"),
@@ -89,6 +206,7 @@ func TestAccAWSRoute53Zone_disappears(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, route53.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckRoute53ZoneDestroy,
 		Steps: []resource.TestStep{
@@ -109,6 +227,7 @@ func TestAccAWSRoute53Zone_multiple(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, route53.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckRoute53ZoneDestroy,
 		Steps: []resource.TestStep{
@@ -140,6 +259,7 @@ func TestAccAWSRoute53Zone_Comment(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, route53.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckRoute53ZoneDestroy,
 		Steps: []resource.TestStep{
@@ -177,6 +297,7 @@ func TestAccAWSRoute53Zone_DelegationSetID(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, route53.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckRoute53ZoneDestroy,
 		Steps: []resource.TestStep{
@@ -206,6 +327,7 @@ func TestAccAWSRoute53Zone_ForceDestroy(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, route53.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckRoute53ZoneDestroy,
 		Steps: []resource.TestStep{
@@ -231,6 +353,7 @@ func TestAccAWSRoute53Zone_ForceDestroy_TrailingPeriod(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, route53.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckRoute53ZoneDestroy,
 		Steps: []resource.TestStep{
@@ -256,6 +379,7 @@ func TestAccAWSRoute53Zone_Tags(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, route53.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckRoute53ZoneDestroy,
 		Steps: []resource.TestStep{
@@ -304,6 +428,7 @@ func TestAccAWSRoute53Zone_VPC_Single(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, route53.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckRoute53ZoneDestroy,
 		Steps: []resource.TestStep{
@@ -336,6 +461,7 @@ func TestAccAWSRoute53Zone_VPC_Multiple(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, route53.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckRoute53ZoneDestroy,
 		Steps: []resource.TestStep{
@@ -369,6 +495,7 @@ func TestAccAWSRoute53Zone_VPC_Updates(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, route53.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckRoute53ZoneDestroy,
 		Steps: []resource.TestStep{
@@ -554,7 +681,7 @@ func testAccCheckDomainName(zone *route53.GetHostedZoneOutput, domain string) re
 			return fmt.Errorf("Empty name in HostedZone for domain %s", domain)
 		}
 
-		if *zone.HostedZone.Name == domain {
+		if aws.StringValue(zone.HostedZone.Name) == domain {
 			return nil
 		}
 
@@ -570,13 +697,13 @@ resource "aws_route53_zone" "test" {
 }
 
 func testAccRoute53ZoneConfigMultiple() string {
-	return fmt.Sprintf(`
+	return `
 resource "aws_route53_zone" "test" {
   count = 5
 
   name = "subdomain${count.index}.terraformtest.com"
 }
-`)
+`
 }
 
 func testAccRoute53ZoneConfigComment(zoneName, comment string) string {
@@ -593,7 +720,7 @@ func testAccRoute53ZoneConfigDelegationSetID(zoneName string) string {
 resource "aws_route53_delegation_set" "test" {}
 
 resource "aws_route53_zone" "test" {
-  delegation_set_id = "${aws_route53_delegation_set.test.id}"
+  delegation_set_id = aws_route53_delegation_set.test.id
   name              = "%s."
 }
 `, zoneName)
@@ -656,7 +783,7 @@ resource "aws_route53_zone" "test" {
   name = "%s."
 
   vpc {
-    vpc_id = "${aws_vpc.test1.id}"
+    vpc_id = aws_vpc.test1.id
   }
 }
 `, rName, zoneName)
@@ -668,7 +795,7 @@ resource "aws_vpc" "test1" {
   cidr_block = "10.1.0.0/16"
 
   tags = {
-    Name = %q
+    Name = %[1]q
   }
 }
 
@@ -676,20 +803,20 @@ resource "aws_vpc" "test2" {
   cidr_block = "10.2.0.0/16"
 
   tags = {
-    Name = %q
+    Name = %[1]q
   }
 }
 
 resource "aws_route53_zone" "test" {
-  name = "%s."
+  name = "%[2]s."
 
   vpc {
-    vpc_id = "${aws_vpc.test1.id}"
+    vpc_id = aws_vpc.test1.id
   }
 
   vpc {
-    vpc_id = "${aws_vpc.test2.id}"
+    vpc_id = aws_vpc.test2.id
   }
 }
-`, rName, rName, zoneName)
+`, rName, zoneName)
 }
