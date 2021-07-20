@@ -9,9 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
 	"github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 	"github.com/terraform-providers/terraform-provider-aws/aws/internal/service/servicediscovery/waiter"
 )
 
@@ -43,9 +43,9 @@ func testSweepServiceDiscoveryHttpNamespaces(region string) error {
 		},
 	}
 
-	err = conn.ListNamespacesPages(input, func(page *servicediscovery.ListNamespacesOutput, isLast bool) bool {
+	err = conn.ListNamespacesPages(input, func(page *servicediscovery.ListNamespacesOutput, lastPage bool) bool {
 		if page == nil {
-			return !isLast
+			return !lastPage
 		}
 
 		for _, namespace := range page.Namespaces {
@@ -78,7 +78,7 @@ func testSweepServiceDiscoveryHttpNamespaces(region string) error {
 			}
 		}
 
-		return !isLast
+		return !lastPage
 	})
 
 	if testSweepSkipSweepError(err) {
@@ -99,6 +99,7 @@ func TestAccAWSServiceDiscoveryHttpNamespace_basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t); testAccPreCheckAWSServiceDiscovery(t) },
+		ErrorCheck:   testAccErrorCheck(t, servicediscovery.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckAwsServiceDiscoveryHttpNamespaceDestroy,
 		Steps: []resource.TestStep{
@@ -128,6 +129,7 @@ func TestAccAWSServiceDiscoveryHttpNamespace_disappears(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t); testAccPreCheckAWSServiceDiscovery(t) },
+		ErrorCheck:   testAccErrorCheck(t, servicediscovery.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckAwsServiceDiscoveryHttpNamespaceDestroy,
 		Steps: []resource.TestStep{
@@ -149,6 +151,7 @@ func TestAccAWSServiceDiscoveryHttpNamespace_Description(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t); testAccPreCheckAWSServiceDiscovery(t) },
+		ErrorCheck:   testAccErrorCheck(t, servicediscovery.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckAwsServiceDiscoveryHttpNamespaceDestroy,
 		Steps: []resource.TestStep{
@@ -174,6 +177,7 @@ func TestAccAWSServiceDiscoveryHttpNamespace_Tags(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t); testAccPreCheckAWSServiceDiscovery(t) },
+		ErrorCheck:   testAccErrorCheck(t, servicediscovery.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckAwsServiceDiscoveryHttpNamespaceDestroy,
 		Steps: []resource.TestStep{

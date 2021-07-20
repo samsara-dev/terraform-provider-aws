@@ -6,8 +6,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/wafv2"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func wafv2EmptySchema() *schema.Schema {
@@ -18,6 +18,18 @@ func wafv2EmptySchema() *schema.Schema {
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{},
 		},
+	}
+}
+
+func wafv2EmptySchemaDeprecated() *schema.Schema {
+	return &schema.Schema{
+		Type:     schema.TypeList,
+		Optional: true,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{},
+		},
+		Deprecated: "Not supported by WAFv2 API",
 	}
 }
 
@@ -143,6 +155,7 @@ func wafv2GeoMatchStatementSchema() *schema.Schema {
 					MinItems: 1,
 					Elem:     &schema.Schema{Type: schema.TypeString},
 				},
+				"forwarded_ip_config": wafv2ForwardedIPConfig(),
 			},
 		},
 	}
@@ -159,6 +172,33 @@ func wafv2IpSetReferenceStatementSchema() *schema.Schema {
 					Type:         schema.TypeString,
 					Required:     true,
 					ValidateFunc: validateArn,
+				},
+				"ip_set_forwarded_ip_config": {
+					Type:     schema.TypeList,
+					Optional: true,
+					MaxItems: 1,
+					Elem: &schema.Resource{
+						Schema: map[string]*schema.Schema{
+							"fallback_behavior": {
+								Type:         schema.TypeString,
+								Required:     true,
+								ValidateFunc: validation.StringInSlice(wafv2.FallbackBehavior_Values(), false),
+							},
+							"header_name": {
+								Type:     schema.TypeString,
+								Required: true,
+								ValidateFunc: validation.All(
+									validation.StringLenBetween(1, 255),
+									validation.StringMatch(regexp.MustCompile(`^[a-zA-Z0-9-]+$`), "must contain only alphanumeric and hyphen characters"),
+								),
+							},
+							"position": {
+								Type:         schema.TypeString,
+								Required:     true,
+								ValidateFunc: validation.StringInSlice(wafv2.ForwardedIPPosition_Values(), false),
+							},
+						},
+					},
 				},
 			},
 		},
@@ -301,6 +341,27 @@ func wafv2FieldToMatchSchema() *schema.Schema {
 	}
 }
 
+func wafv2ForwardedIPConfig() *schema.Schema {
+	return &schema.Schema{
+		Type:     schema.TypeList,
+		Optional: true,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"fallback_behavior": {
+					Type:         schema.TypeString,
+					Required:     true,
+					ValidateFunc: validation.StringInSlice(wafv2.FallbackBehavior_Values(), false),
+				},
+				"header_name": {
+					Type:     schema.TypeString,
+					Required: true,
+				},
+			},
+		},
+	}
+}
+
 func wafv2TextTransformationSchema() *schema.Schema {
 	return &schema.Schema{
 		Type:     schema.TypeSet,
@@ -342,7 +403,6 @@ func wafv2VisibilityConfigSchema() *schema.Schema {
 				"metric_name": {
 					Type:     schema.TypeString,
 					Required: true,
-					ForceNew: true,
 					ValidateFunc: validation.All(
 						validation.StringLenBetween(1, 128),
 						validation.StringMatch(regexp.MustCompile(`^[a-zA-Z0-9-_]+$`), "must contain only alphanumeric hyphen and underscore characters"),
@@ -351,6 +411,117 @@ func wafv2VisibilityConfigSchema() *schema.Schema {
 				"sampled_requests_enabled": {
 					Type:     schema.TypeBool,
 					Required: true,
+				},
+			},
+		},
+	}
+}
+
+func wafv2AllowConfigSchema() *schema.Schema {
+	return &schema.Schema{
+		Type:     schema.TypeList,
+		Optional: true,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"custom_request_handling": wafv2CustomRequestHandlingSchema(),
+			},
+		},
+	}
+}
+
+func wafv2CountConfigSchema() *schema.Schema {
+	return &schema.Schema{
+		Type:     schema.TypeList,
+		Optional: true,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"custom_request_handling": wafv2CustomRequestHandlingSchema(),
+			},
+		},
+	}
+}
+
+func wafv2BlockConfigSchema() *schema.Schema {
+	return &schema.Schema{
+		Type:     schema.TypeList,
+		Optional: true,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"custom_response": wafv2CustomResponseSchema(),
+			},
+		},
+	}
+}
+
+func wafv2CustomRequestHandlingSchema() *schema.Schema {
+	return &schema.Schema{
+		Type:     schema.TypeList,
+		Optional: true,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"insert_header": {
+					Type:     schema.TypeSet,
+					Required: true,
+					MinItems: 1,
+					Elem: &schema.Resource{
+						Schema: map[string]*schema.Schema{
+							"name": {
+								Type:     schema.TypeString,
+								Required: true,
+								ValidateFunc: validation.All(
+									validation.StringLenBetween(1, 64),
+									validation.StringMatch(regexp.MustCompile(`^[a-zA-Z0-9._$-]+$`), "must contain only alphanumeric, hyphen, underscore, dot and $ characters"),
+								),
+							},
+							"value": {
+								Type:         schema.TypeString,
+								Required:     true,
+								ValidateFunc: validation.StringLenBetween(1, 255),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func wafv2CustomResponseSchema() *schema.Schema {
+	return &schema.Schema{
+		Type:     schema.TypeList,
+		Optional: true,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"response_code": {
+					Type:         schema.TypeInt,
+					Required:     true,
+					ValidateFunc: validation.IntBetween(200, 600),
+				},
+				"response_header": {
+					Type:     schema.TypeSet,
+					Optional: true,
+					Elem: &schema.Resource{
+						Schema: map[string]*schema.Schema{
+							"name": {
+								Type:     schema.TypeString,
+								Required: true,
+								ValidateFunc: validation.All(
+									validation.StringLenBetween(1, 64),
+									validation.StringMatch(regexp.MustCompile(`^[a-zA-Z0-9._$-]+$`), "must contain only alphanumeric, hyphen, underscore, dot and $ characters"),
+								),
+							},
+							"value": {
+								Type:         schema.TypeString,
+								Required:     true,
+								ValidateFunc: validation.StringLenBetween(1, 255),
+							},
+						},
+					},
 				},
 			},
 		},
@@ -397,18 +568,133 @@ func expandWafv2RuleAction(l []interface{}) *wafv2.RuleAction {
 	action := &wafv2.RuleAction{}
 
 	if v, ok := m["allow"]; ok && len(v.([]interface{})) > 0 {
-		action.Allow = &wafv2.AllowAction{}
+		action.Allow = expandWafv2AllowAction(v.([]interface{}))
 	}
 
 	if v, ok := m["block"]; ok && len(v.([]interface{})) > 0 {
-		action.Block = &wafv2.BlockAction{}
+		action.Block = expandWafv2BlockAction(v.([]interface{}))
 	}
 
 	if v, ok := m["count"]; ok && len(v.([]interface{})) > 0 {
-		action.Count = &wafv2.CountAction{}
+		action.Count = expandWafv2CountAction(v.([]interface{}))
 	}
 
 	return action
+}
+
+func expandWafv2AllowAction(l []interface{}) *wafv2.AllowAction {
+	action := &wafv2.AllowAction{}
+
+	if len(l) == 0 || l[0] == nil {
+		return action
+	}
+
+	m, ok := l[0].(map[string]interface{})
+	if !ok {
+		return action
+	}
+
+	if v, ok := m["custom_request_handling"].([]interface{}); ok && len(v) > 0 {
+		action.CustomRequestHandling = expandWafv2CustomRequestHandling(v)
+	}
+
+	return action
+}
+
+func expandWafv2CountAction(l []interface{}) *wafv2.CountAction {
+	action := &wafv2.CountAction{}
+
+	if len(l) == 0 || l[0] == nil {
+		return action
+	}
+
+	m, ok := l[0].(map[string]interface{})
+	if !ok {
+		return action
+	}
+
+	if v, ok := m["custom_request_handling"].([]interface{}); ok && len(v) > 0 {
+		action.CustomRequestHandling = expandWafv2CustomRequestHandling(v)
+	}
+
+	return action
+}
+
+func expandWafv2BlockAction(l []interface{}) *wafv2.BlockAction {
+	action := &wafv2.BlockAction{}
+
+	if len(l) == 0 || l[0] == nil {
+		return action
+	}
+
+	m, ok := l[0].(map[string]interface{})
+	if !ok {
+		return action
+	}
+
+	if v, ok := m["custom_response"].([]interface{}); ok && len(v) > 0 {
+		action.CustomResponse = expandWafv2CustomResponse(v)
+	}
+
+	return action
+}
+
+func expandWafv2CustomResponse(l []interface{}) *wafv2.CustomResponse {
+	if len(l) == 0 || l[0] == nil {
+		return nil
+	}
+
+	m, ok := l[0].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	customResponse := &wafv2.CustomResponse{}
+
+	if v, ok := m["response_code"].(int); ok && v > 0 {
+		customResponse.ResponseCode = aws.Int64(int64(v))
+	}
+	if v, ok := m["response_header"].(*schema.Set); ok && len(v.List()) > 0 {
+		customResponse.ResponseHeaders = expandWafv2CustomHeaders(v.List())
+	}
+
+	return customResponse
+}
+
+func expandWafv2CustomRequestHandling(l []interface{}) *wafv2.CustomRequestHandling {
+	if len(l) == 0 || l[0] == nil {
+		return nil
+	}
+
+	m := l[0].(map[string]interface{})
+	requestHandling := &wafv2.CustomRequestHandling{}
+
+	if v, ok := m["insert_header"].(*schema.Set); ok && len(v.List()) > 0 {
+		requestHandling.InsertHeaders = expandWafv2CustomHeaders(v.List())
+	}
+
+	return requestHandling
+}
+
+func expandWafv2CustomHeaders(l []interface{}) []*wafv2.CustomHTTPHeader {
+	if len(l) == 0 || l[0] == nil {
+		return nil
+	}
+
+	headers := make([]*wafv2.CustomHTTPHeader, 0)
+
+	for _, header := range l {
+		if header == nil {
+			continue
+		}
+		m := header.(map[string]interface{})
+		headers = append(headers, &wafv2.CustomHTTPHeader{
+			Name:  aws.String(m["name"].(string)),
+			Value: aws.String(m["value"].(string)),
+		})
+	}
+
+	return headers
 }
 
 func expandWafv2VisibilityConfig(l []interface{}) *wafv2.VisibilityConfig {
@@ -578,6 +864,33 @@ func expandWafv2FieldToMatch(l []interface{}) *wafv2.FieldToMatch {
 	return f
 }
 
+func expandWafv2ForwardedIPConfig(l []interface{}) *wafv2.ForwardedIPConfig {
+	if len(l) == 0 || l[0] == nil {
+		return nil
+	}
+
+	m := l[0].(map[string]interface{})
+
+	return &wafv2.ForwardedIPConfig{
+		FallbackBehavior: aws.String(m["fallback_behavior"].(string)),
+		HeaderName:       aws.String(m["header_name"].(string)),
+	}
+}
+
+func expandWafv2IPSetForwardedIPConfig(l []interface{}) *wafv2.IPSetForwardedIPConfig {
+	if len(l) == 0 || l[0] == nil {
+		return nil
+	}
+
+	m := l[0].(map[string]interface{})
+
+	return &wafv2.IPSetForwardedIPConfig{
+		FallbackBehavior: aws.String(m["fallback_behavior"].(string)),
+		HeaderName:       aws.String(m["header_name"].(string)),
+		Position:         aws.String(m["position"].(string)),
+	}
+}
+
 func expandWafv2SingleHeader(l []interface{}) *wafv2.SingleHeader {
 	if len(l) == 0 || l[0] == nil {
 		return nil
@@ -637,9 +950,15 @@ func expandWafv2IpSetReferenceStatement(l []interface{}) *wafv2.IPSetReferenceSt
 
 	m := l[0].(map[string]interface{})
 
-	return &wafv2.IPSetReferenceStatement{
+	statement := &wafv2.IPSetReferenceStatement{
 		ARN: aws.String(m["arn"].(string)),
 	}
+
+	if v, ok := m["ip_set_forwarded_ip_config"]; ok {
+		statement.IPSetForwardedIPConfig = expandWafv2IPSetForwardedIPConfig(v.([]interface{}))
+	}
+
+	return statement
 }
 
 func expandWafv2GeoMatchStatement(l []interface{}) *wafv2.GeoMatchStatement {
@@ -649,9 +968,15 @@ func expandWafv2GeoMatchStatement(l []interface{}) *wafv2.GeoMatchStatement {
 
 	m := l[0].(map[string]interface{})
 
-	return &wafv2.GeoMatchStatement{
+	statement := &wafv2.GeoMatchStatement{
 		CountryCodes: expandStringList(m["country_codes"].([]interface{})),
 	}
+
+	if v, ok := m["forwarded_ip_config"]; ok {
+		statement.ForwardedIPConfig = expandWafv2ForwardedIPConfig(v.([]interface{}))
+	}
+
+	return statement
 }
 
 func expandWafv2NotStatement(l []interface{}) *wafv2.NotStatement {
@@ -763,18 +1088,105 @@ func flattenWafv2RuleAction(a *wafv2.RuleAction) interface{} {
 	m := map[string]interface{}{}
 
 	if a.Allow != nil {
-		m["allow"] = make([]map[string]interface{}, 1)
+		m["allow"] = flattenWafv2Allow(a.Allow)
 	}
 
 	if a.Block != nil {
-		m["block"] = make([]map[string]interface{}, 1)
+		m["block"] = flattenWafv2Block(a.Block)
 	}
 
 	if a.Count != nil {
-		m["count"] = make([]map[string]interface{}, 1)
+		m["count"] = flattenWafv2Count(a.Count)
 	}
 
 	return []interface{}{m}
+}
+
+func flattenWafv2Allow(a *wafv2.AllowAction) []interface{} {
+	if a == nil {
+		return []interface{}{}
+	}
+	m := map[string]interface{}{}
+
+	if a.CustomRequestHandling != nil {
+		m["custom_request_handling"] = flattenWafv2CustomRequestHandling(a.CustomRequestHandling)
+	}
+
+	return []interface{}{m}
+}
+
+func flattenWafv2Block(a *wafv2.BlockAction) []interface{} {
+	if a == nil {
+		return []interface{}{}
+	}
+
+	m := map[string]interface{}{}
+
+	if a.CustomResponse != nil {
+		m["custom_response"] = flattenWafv2CustomResponse(a.CustomResponse)
+	}
+
+	return []interface{}{m}
+}
+
+func flattenWafv2Count(a *wafv2.CountAction) []interface{} {
+	if a == nil {
+		return []interface{}{}
+	}
+	m := map[string]interface{}{}
+
+	if a.CustomRequestHandling != nil {
+		m["custom_request_handling"] = flattenWafv2CustomRequestHandling(a.CustomRequestHandling)
+	}
+
+	return []interface{}{m}
+}
+
+func flattenWafv2CustomRequestHandling(c *wafv2.CustomRequestHandling) []interface{} {
+	if c == nil {
+		return []interface{}{}
+	}
+
+	m := map[string]interface{}{
+		"insert_header": flattenWafv2CustomHeaders(c.InsertHeaders),
+	}
+
+	return []interface{}{m}
+}
+
+func flattenWafv2CustomResponse(r *wafv2.CustomResponse) []interface{} {
+	if r == nil {
+		return []interface{}{}
+	}
+
+	m := map[string]interface{}{
+		"response_code":   int(aws.Int64Value(r.ResponseCode)),
+		"response_header": flattenWafv2CustomHeaders(r.ResponseHeaders),
+	}
+
+	return []interface{}{m}
+}
+
+func flattenWafv2CustomHeaders(h []*wafv2.CustomHTTPHeader) []interface{} {
+	out := make([]interface{}, len(h))
+	for i, header := range h {
+		out[i] = flattenWafv2CustomHeader(header)
+	}
+
+	return out
+}
+
+func flattenWafv2CustomHeader(h *wafv2.CustomHTTPHeader) map[string]interface{} {
+	if h == nil {
+		return map[string]interface{}{}
+	}
+
+	m := map[string]interface{}{
+		"name":  aws.StringValue(h.Name),
+		"value": aws.StringValue(h.Value),
+	}
+
+	return m
 }
 
 func flattenWafv2RootStatement(s *wafv2.Statement) interface{} {
@@ -909,6 +1321,33 @@ func flattenWafv2FieldToMatch(f *wafv2.FieldToMatch) interface{} {
 	return []interface{}{m}
 }
 
+func flattenWafv2ForwardedIPConfig(f *wafv2.ForwardedIPConfig) interface{} {
+	if f == nil {
+		return []interface{}{}
+	}
+
+	m := map[string]interface{}{
+		"fallback_behavior": aws.StringValue(f.FallbackBehavior),
+		"header_name":       aws.StringValue(f.HeaderName),
+	}
+
+	return []interface{}{m}
+}
+
+func flattenWafv2IPSetForwardedIPConfig(i *wafv2.IPSetForwardedIPConfig) interface{} {
+	if i == nil {
+		return []interface{}{}
+	}
+
+	m := map[string]interface{}{
+		"fallback_behavior": aws.StringValue(i.FallbackBehavior),
+		"header_name":       aws.StringValue(i.HeaderName),
+		"position":          aws.StringValue(i.Position),
+	}
+
+	return []interface{}{m}
+}
+
 func flattenWafv2SingleHeader(s *wafv2.SingleHeader) interface{} {
 	if s == nil {
 		return []interface{}{}
@@ -950,7 +1389,8 @@ func flattenWafv2IpSetReferenceStatement(i *wafv2.IPSetReferenceStatement) inter
 	}
 
 	m := map[string]interface{}{
-		"arn": aws.StringValue(i.ARN),
+		"arn":                        aws.StringValue(i.ARN),
+		"ip_set_forwarded_ip_config": flattenWafv2IPSetForwardedIPConfig(i.IPSetForwardedIPConfig),
 	}
 
 	return []interface{}{m}
@@ -962,7 +1402,8 @@ func flattenWafv2GeoMatchStatement(g *wafv2.GeoMatchStatement) interface{} {
 	}
 
 	m := map[string]interface{}{
-		"country_codes": flattenStringList(g.CountryCodes),
+		"country_codes":       flattenStringList(g.CountryCodes),
+		"forwarded_ip_config": flattenWafv2ForwardedIPConfig(g.ForwardedIPConfig),
 	}
 
 	return []interface{}{m}

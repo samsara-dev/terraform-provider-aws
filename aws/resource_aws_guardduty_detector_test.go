@@ -9,14 +9,15 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/guardduty"
 	"github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
 func init() {
 	resource.AddTestSweepers("aws_guardduty_detector", &resource.Sweeper{
-		Name: "aws_guardduty_detector",
-		F:    testSweepGuarddutyDetectors,
+		Name:         "aws_guardduty_detector",
+		F:            testSweepGuarddutyDetectors,
+		Dependencies: []string{"aws_guardduty_publishing_destination"},
 	})
 }
 
@@ -24,7 +25,7 @@ func testSweepGuarddutyDetectors(region string) error {
 	client, err := sharedClientForRegion(region)
 
 	if err != nil {
-		return fmt.Errorf("error getting client: %s", err)
+		return fmt.Errorf("error getting client: %w", err)
 	}
 
 	conn := client.(*AWSClient).guarddutyconn
@@ -40,7 +41,10 @@ func testSweepGuarddutyDetectors(region string) error {
 
 			log.Printf("[INFO] Deleting GuardDuty Detector: %s", id)
 			_, err := conn.DeleteDetector(input)
-
+			if testSweepSkipResourceError(err) {
+				log.Printf("[WARN] Skipping GuardDuty Detector (%s): %s", id, err)
+				continue
+			}
 			if err != nil {
 				sweeperErr := fmt.Errorf("error deleting GuardDuty Detector (%s): %w", id, err)
 				log.Printf("[ERROR] %s", sweeperErr)
@@ -57,7 +61,7 @@ func testSweepGuarddutyDetectors(region string) error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("error retrieving GuardDuty Detectors: %s", err)
+		return fmt.Errorf("error retrieving GuardDuty Detectors: %w", err)
 	}
 
 	return sweeperErrs.ErrorOrNil()
@@ -68,6 +72,7 @@ func testAccAwsGuardDutyDetector_basic(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, guardduty.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckAwsGuardDutyDetectorDestroy,
 		Steps: []resource.TestStep{
@@ -117,6 +122,7 @@ func testAccAwsGuardDutyDetector_tags(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, guardduty.EndpointsID),
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckAwsGuardDutyDetectorDestroy,
 		Steps: []resource.TestStep{
@@ -148,6 +154,42 @@ func testAccAwsGuardDutyDetector_tags(t *testing.T) {
 					testAccCheckAwsGuardDutyDetectorExists(resourceName),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "1"),
 					resource.TestCheckResourceAttr(resourceName, "tags.key2", "value2"),
+				),
+			},
+		},
+	})
+}
+
+func testAccAwsGuardDutyDetector_datasources_s3logs(t *testing.T) {
+	resourceName := "aws_guardduty_detector.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, guardduty.EndpointsID),
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckAwsGuardDutyDetectorDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccGuardDutyDetectorConfigDatasourcesS3Logs(true),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAwsGuardDutyDetectorExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "datasources.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "datasources.0.s3_logs.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "datasources.0.s3_logs.0.enable", "true"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				Config: testAccGuardDutyDetectorConfigDatasourcesS3Logs(false),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAwsGuardDutyDetectorExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "datasources.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "datasources.0.s3_logs.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "datasources.0.s3_logs.0.enable", "false"),
 				),
 			},
 		},
@@ -192,22 +234,26 @@ func testAccCheckAwsGuardDutyDetectorExists(name string) resource.TestCheckFunc 
 }
 
 const testAccGuardDutyDetectorConfig_basic1 = `
-resource "aws_guardduty_detector" "test" {}`
+resource "aws_guardduty_detector" "test" {}
+`
 
 const testAccGuardDutyDetectorConfig_basic2 = `
 resource "aws_guardduty_detector" "test" {
   enable = false
-}`
+}
+`
 
 const testAccGuardDutyDetectorConfig_basic3 = `
 resource "aws_guardduty_detector" "test" {
   enable = true
-}`
+}
+`
 
 const testAccGuardDutyDetectorConfig_basic4 = `
 resource "aws_guardduty_detector" "test" {
   finding_publishing_frequency = "FIFTEEN_MINUTES"
-}`
+}
+`
 
 func testAccGuardDutyDetectorConfigTags1(tagKey1, tagValue1 string) string {
 	return fmt.Sprintf(`
@@ -228,4 +274,16 @@ resource "aws_guardduty_detector" "test" {
   }
 }
 `, tagKey1, tagValue1, tagKey2, tagValue2)
+}
+
+func testAccGuardDutyDetectorConfigDatasourcesS3Logs(enable bool) string {
+	return fmt.Sprintf(`
+resource "aws_guardduty_detector" "test" {
+  datasources {
+    s3_logs {
+      enable = %[1]t
+    }
+  }
+}
+`, enable)
 }

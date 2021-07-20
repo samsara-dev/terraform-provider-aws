@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"regexp"
@@ -10,12 +11,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	elasticsearch "github.com/aws/aws-sdk-go/service/elasticsearchservice"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/customdiff"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/structure"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/terraform-providers/terraform-provider-aws/aws/internal/keyvaluetags"
+	iamwaiter "github.com/terraform-providers/terraform-provider-aws/aws/internal/service/iam/waiter"
 )
 
 func resourceAwsElasticSearchDomain() *schema.Resource {
@@ -33,7 +35,7 @@ func resourceAwsElasticSearchDomain() *schema.Resource {
 		},
 
 		CustomizeDiff: customdiff.Sequence(
-			customdiff.ForceNewIf("elasticsearch_version", func(d *schema.ResourceDiff, meta interface{}) bool {
+			customdiff.ForceNewIf("elasticsearch_version", func(_ context.Context, d *schema.ResourceDiff, meta interface{}) bool {
 				newVersion := d.Get("elasticsearch_version").(string)
 				domainName := d.Get("domain_name").(string)
 
@@ -55,6 +57,7 @@ func resourceAwsElasticSearchDomain() *schema.Resource {
 				}
 				return true
 			}),
+			SetTagsDiff,
 		),
 
 		Schema: map[string]*schema.Schema{
@@ -139,7 +142,8 @@ func resourceAwsElasticSearchDomain() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"enforce_https": {
 							Type:     schema.TypeBool,
-							Required: true,
+							Optional: true,
+							Default:  true,
 						},
 						"tls_security_policy": {
 							Type:     schema.TypeString,
@@ -149,6 +153,22 @@ func resourceAwsElasticSearchDomain() *schema.Resource {
 								elasticsearch.TLSSecurityPolicyPolicyMinTls10201907,
 								elasticsearch.TLSSecurityPolicyPolicyMinTls12201907,
 							}, false),
+						},
+						"custom_endpoint_enabled": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
+						"custom_endpoint": {
+							Type:             schema.TypeString,
+							Optional:         true,
+							DiffSuppressFunc: isCustomEndpointDisabled,
+						},
+						"custom_endpoint_certificate_arn": {
+							Type:             schema.TypeString,
+							Optional:         true,
+							ValidateFunc:     validateArn,
+							DiffSuppressFunc: isCustomEndpointDisabled,
 						},
 					},
 				},
@@ -363,13 +383,9 @@ func resourceAwsElasticSearchDomain() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"log_type": {
-							Type:     schema.TypeString,
-							Required: true,
-							ValidateFunc: validation.StringInSlice([]string{
-								elasticsearch.LogTypeIndexSlowLogs,
-								elasticsearch.LogTypeSearchSlowLogs,
-								elasticsearch.LogTypeEsApplicationLogs,
-							}, false),
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validation.StringInSlice(elasticsearch.LogType_Values(), false),
 						},
 						"cloudwatch_log_group_arn": {
 							Type:         schema.TypeString,
@@ -419,7 +435,8 @@ func resourceAwsElasticSearchDomain() *schema.Resource {
 				},
 			},
 
-			"tags": tagsSchema(),
+			"tags":     tagsSchema(),
+			"tags_all": tagsSchemaComputed(),
 		},
 	}
 }
@@ -432,6 +449,8 @@ func resourceAwsElasticSearchDomainImport(
 
 func resourceAwsElasticSearchDomainCreate(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*AWSClient).esconn
+	defaultTagsConfig := meta.(*AWSClient).DefaultTagsConfig
+	tags := defaultTagsConfig.MergeTags(keyvaluetags.New(d.Get("tags").(map[string]interface{})))
 
 	// The API doesn't check for duplicate names
 	// so w/out this check Create would act as upsert
@@ -453,7 +472,7 @@ func resourceAwsElasticSearchDomainCreate(d *schema.ResourceData, meta interface
 	}
 
 	if v, ok := d.GetOk("advanced_options"); ok {
-		input.AdvancedOptions = stringMapToPointers(v.(map[string]interface{}))
+		input.AdvancedOptions = expandStringMap(v.(map[string]interface{}))
 	}
 
 	if v, ok := d.GetOk("advanced_security_options"); ok {
@@ -554,7 +573,7 @@ func resourceAwsElasticSearchDomainCreate(d *schema.ResourceData, meta interface
 
 	// IAM Roles can take some time to propagate if set in AccessPolicies and created in the same terraform
 	var out *elasticsearch.CreateElasticsearchDomainOutput
-	err = resource.Retry(30*time.Second, func() *resource.RetryError {
+	err = resource.Retry(iamwaiter.PropagationTimeout, func() *resource.RetryError {
 		var err error
 		out, err = conn.CreateElasticsearchDomain(&input)
 		if err != nil {
@@ -601,8 +620,8 @@ func resourceAwsElasticSearchDomainCreate(d *schema.ResourceData, meta interface
 	// This should mean that if the creation fails (eg because your token expired
 	// whilst the operation is being performed), we still get the required tags on
 	// the resources.
-	if v := d.Get("tags").(map[string]interface{}); len(v) > 0 {
-		if err := keyvaluetags.ElasticsearchserviceUpdateTags(conn, d.Id(), nil, v); err != nil {
+	if len(tags) > 0 {
+		if err := keyvaluetags.ElasticsearchserviceUpdateTags(conn, d.Id(), nil, tags.IgnoreAws().ElasticsearchserviceTags()); err != nil {
 			return fmt.Errorf("error adding Elasticsearch Cluster (%s) tags: %s", d.Id(), err)
 		}
 	}
@@ -654,6 +673,7 @@ func waitForElasticSearchDomainCreation(conn *elasticsearch.ElasticsearchService
 
 func resourceAwsElasticSearchDomainRead(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*AWSClient).esconn
+	defaultTagsConfig := meta.(*AWSClient).DefaultTagsConfig
 	ignoreTagsConfig := meta.(*AWSClient).IgnoreTagsConfig
 
 	out, err := conn.DescribeElasticsearchDomain(&elasticsearch.DescribeElasticsearchDomainInput{
@@ -709,16 +729,19 @@ func resourceAwsElasticSearchDomainRead(d *schema.ResourceData, meta interface{}
 		return err
 	}
 
-	// Use AdvancedSecurityOptions from resource if possible
-	// because DescribeElasticsearchDomainConfig does not return MasterUserOptions
+	// Populate AdvancedSecurityOptions with values returned from
+	// DescribeElasticsearchDomainConfig, if enabled, else use
+	// values from resource; additionally, append MasterUserOptions
+	// from resource as they are not returned from the API
 	if ds.AdvancedSecurityOptions != nil {
-		if _, ok := d.GetOk("advanced_security_options"); ok {
-			d.Set("advanced_security_options.0.enabled", ds.AdvancedSecurityOptions.Enabled)
-			d.Set("advanced_security_options.0.internal_user_database_enabled", ds.AdvancedSecurityOptions.InternalUserDatabaseEnabled)
-		} else {
-			if err := d.Set("advanced_security_options", flattenAdvancedSecurityOptions(ds.AdvancedSecurityOptions)); err != nil {
-				return fmt.Errorf("error setting advanced_security_options: %w", err)
-			}
+		advSecOpts := flattenAdvancedSecurityOptions(ds.AdvancedSecurityOptions)
+		if !aws.BoolValue(ds.AdvancedSecurityOptions.Enabled) {
+			advSecOpts[0]["internal_user_database_enabled"] = getUserDBEnabled(d)
+		}
+		advSecOpts[0]["master_user_options"] = getMasterUserOptions(d)
+
+		if err := d.Set("advanced_security_options", advSecOpts); err != nil {
+			return fmt.Errorf("error setting advanced_security_options: %w", err)
 		}
 	}
 
@@ -742,7 +765,7 @@ func resourceAwsElasticSearchDomainRead(d *schema.ResourceData, meta interface{}
 		}
 	} else {
 		if ds.Endpoint != nil {
-			d.Set("endpoint", aws.StringValue(ds.Endpoint))
+			d.Set("endpoint", ds.Endpoint)
 			d.Set("kibana_endpoint", getKibanaEndpoint(d))
 		}
 		if ds.Endpoints != nil {
@@ -776,8 +799,15 @@ func resourceAwsElasticSearchDomainRead(d *schema.ResourceData, meta interface{}
 		return fmt.Errorf("error listing tags for Elasticsearch Cluster (%s): %s", d.Id(), err)
 	}
 
-	if err := d.Set("tags", tags.IgnoreAws().IgnoreConfig(ignoreTagsConfig).Map()); err != nil {
-		return fmt.Errorf("error setting tags: %s", err)
+	tags = tags.IgnoreAws().IgnoreConfig(ignoreTagsConfig)
+
+	//lintignore:AWSR002
+	if err := d.Set("tags", tags.RemoveDefaultConfig(defaultTagsConfig).Map()); err != nil {
+		return fmt.Errorf("error setting tags: %w", err)
+	}
+
+	if err := d.Set("tags_all", tags.Map()); err != nil {
+		return fmt.Errorf("error setting tags_all: %w", err)
 	}
 
 	return nil
@@ -786,8 +816,8 @@ func resourceAwsElasticSearchDomainRead(d *schema.ResourceData, meta interface{}
 func resourceAwsElasticSearchDomainUpdate(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*AWSClient).esconn
 
-	if d.HasChange("tags") {
-		o, n := d.GetChange("tags")
+	if d.HasChange("tags_all") {
+		o, n := d.GetChange("tags_all")
 
 		if err := keyvaluetags.ElasticsearchserviceUpdateTags(conn, d.Id(), o, n); err != nil {
 			return fmt.Errorf("error updating Elasticsearch Cluster (%s) tags: %s", d.Id(), err)
@@ -803,7 +833,7 @@ func resourceAwsElasticSearchDomainUpdate(d *schema.ResourceData, meta interface
 	}
 
 	if d.HasChange("advanced_options") {
-		input.AdvancedOptions = stringMapToPointers(d.Get("advanced_options").(map[string]interface{}))
+		input.AdvancedOptions = expandStringMap(d.Get("advanced_options").(map[string]interface{}))
 	}
 
 	if d.HasChange("advanced_security_options") {
@@ -1033,6 +1063,15 @@ func isDedicatedMasterDisabled(k, old, new string, d *schema.ResourceData) bool 
 	if ok {
 		clusterConfig := v.([]interface{})[0].(map[string]interface{})
 		return !clusterConfig["dedicated_master_enabled"].(bool)
+	}
+	return false
+}
+
+func isCustomEndpointDisabled(k, old, new string, d *schema.ResourceData) bool {
+	v, ok := d.GetOk("domain_endpoint_options")
+	if ok {
+		domainEndpointOptions := v.([]interface{})[0].(map[string]interface{})
+		return !domainEndpointOptions["custom_endpoint_enabled"].(bool)
 	}
 	return false
 }
