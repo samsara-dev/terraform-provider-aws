@@ -19,7 +19,7 @@ require (
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/go-testing-interface v1.14.1
-	github.com/pquerna/otp v1.3.0
+	github.com/pquerna/otp v1.4.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
